@@ -1,0 +1,61 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Data room / Import</p>
+    <h1><%= @import.account_name.presence || @import.kind.humanize %></h1>
+    <p class="subhead"><%= @import.statement_month.strftime("%B %Y") %> · <%= @import.file.filename %></p>
+  </div>
+  <div><span class="status status-<%= @import.status %>"><%= @import.status.humanize %></span></div>
+</div>
+
+<section class="section-panel mt-10">
+  <div class="section-title">
+    <div>
+      <p class="eyebrow">File review</p>
+      <h2><%= @transactions.size %> normalized entries</h2>
+      <% if @import.statement_total %>
+        <small>Statement total: <%= number_to_currency(@import.statement_total, unit: "R$ ", separator: ",", delimiter: ".") %> · Normalized: <%= number_to_currency(@import.normalized_total, unit: "R$ ", separator: ",", delimiter: ".") %> · <%= @import.reconciliation_status.humanize %></small>
+      <% end %>
+      <% if @import.error_message.present? %><p class="form-error mt-4"><%= @import.error_message %></p><% end %>
+    </div>
+    <% if @import.pending? || @import.failed? %>
+      <%= button_to "Process statement", process_file_import_path(@import), method: :post, class: "button button-primary" %>
+    <% end %>
+  </div>
+
+  <div class="transaction-list">
+    <% @transactions.each do |transaction| %>
+      <div class="transaction-row <%= 'needs-review' if transaction.categorization_pending? %>">
+        <span class="transaction-date"><%= transaction.date.strftime("%d %b") %></span>
+        <span class="transaction-description"><strong><%= transaction.description %></strong><small><%= transaction.categorization_categorized? ? "OpenAI or saved pattern" : "Needs review" %></small></span>
+        <strong class="amount"><%= number_to_currency(transaction.amount, unit: "R$ ", separator: ",", delimiter: ".") %></strong>
+        <%= link_to edit_transaction_path(transaction), class: "category-button", aria: { label: "Change category for #{transaction.description}" } do %>
+          <span class="category-button-dot" style="background:<%= transaction.category&.color || '#D8D6CF' %>"></span>
+          <span><%= transaction.category&.name || "Choose category" %></span>
+          <small>Change</small>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</section>
+
+<section class="danger-zone mt-8" aria-labelledby="import-controls-title">
+  <header class="danger-header">
+    <p class="eyebrow">Import controls</p>
+    <h2 id="import-controls-title">Remove imported data</h2>
+    <p>These actions are permanent. You can upload your files again afterward.</p>
+  </header>
+  <div class="danger-action-row">
+    <div class="danger-action-copy">
+      <h3>Remove this file</h3>
+      <p id="delete-import-description">Delete <span class="danger-scope"><%= @import.file.filename %></span> and its imported transactions. Other files stay unchanged.</p>
+    </div>
+    <%= button_to "Delete this import", import_path(@import), method: :delete, class: "button button-danger-outline", aria: { describedby: "delete-import-description" }, form: { data: { turbo_confirm: "Delete #{@import.file.filename} and all of its imported transactions? This cannot be undone." } } %>
+  </div>
+  <div class="danger-action-row">
+    <div class="danger-action-copy">
+      <h3>Start the month over</h3>
+      <p id="clear-month-description">Remove all uploads, imports, and transactions for <span class="danger-scope"><%= @import.statement_month.strftime("%B %Y") %></span>. Other months stay unchanged.</p>
+    </div>
+    <%= button_to "Clear entire month", month_imports_path(month: @import.statement_month.strftime("%Y-%m")), method: :delete, class: "button button-danger", aria: { describedby: "clear-month-description" }, form: { data: { turbo_confirm: "Clear every import and transaction for #{@import.statement_month.strftime('%B %Y')}? This cannot be undone." } } %>
+  </div>
+</section>

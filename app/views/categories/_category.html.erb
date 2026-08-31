@@ -1,0 +1,14 @@
+<div class="tree-row <%= 'child' if depth.positive? %>" style="margin-left: <%= depth * 1.25 %>rem">
+  <% if depth.positive? %><span class="branch">↳</span><% else %><span class="category-icon" style="background:<%= category.color %>"><%= category.name.first %></span><% end %>
+  <strong><%= category.name %></strong>
+  <span class="tree-kind"><%= category.kind %></span>
+  <%= link_to "Edit", edit_category_path(category), class: "quiet-link ml-auto" %>
+  <% if category.transactions.exists? %>
+    <span class="tree-kind">Has transactions</span>
+  <% elsif category.children.exists? %>
+    <span class="tree-kind">Has subcategories</span>
+  <% else %>
+    <%= button_to "Delete", category_path(category), method: :delete, class: "quiet-link", aria: { label: "Delete #{category.name}" }, form: { data: { turbo_confirm: "Delete #{category.name}? This cannot be undone." } } %>
+  <% end %>
+</div>
+<%= render partial: "category", collection: category.children.order(:name), locals: { depth: depth + 1 } %>

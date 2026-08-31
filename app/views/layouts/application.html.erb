@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Ledgerly · Personal finance</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="turbo-cache-control" content="no-cache">
+    <%= csrf_meta_tags %>
+    <%= csp_meta_tag %>
+    <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
+    <%= javascript_importmap_tags %>
+  </head>
+  <body class="bg-ink text-paper antialiased">
+    <div class="min-h-screen lg:flex">
+      <aside class="sidebar">
+        <%= link_to dashboard_path, class: "brand" do %><span class="brand-mark">L</span><span>ledgerly</span><% end %>
+        <p class="eyebrow mt-12">Workspace</p>
+        <nav class="mt-4 space-y-1">
+          <%= link_to dashboard_path, class: "nav-link #{controller_name == 'dashboard' ? 'active' : ''}" do %><span>◌</span> Overview<% end %>
+          <%= link_to transactions_path, class: "nav-link #{controller_name == 'transactions' ? 'active' : ''}" do %><span>↗</span> Transactions<% end %>
+          <%= link_to imports_path, class: "nav-link #{controller_name == 'imports' ? 'active' : ''}" do %><span>↑</span> Imports<% end %>
+          <%= link_to reports_path, class: "nav-link #{controller_name == 'reports' ? 'active' : ''}" do %><span>▤</span> Reports<% end %>
+        </nav>
+        <div class="sidebar-footer">
+          <p class="eyebrow">Your system</p>
+          <%= link_to categories_path, class: "nav-link mt-3 #{controller_name == 'categories' ? 'active' : ''}" do %><span>⌘</span> Categories<% end %>
+          <div class="profile"><span class="avatar">R</span><span><strong>Personal account</strong><small>Local workspace</small></span></div>
+        </div>
+      </aside>
+      <main class="content">
+        <%= render "shared/month_filter" %>
+        <% if notice %><div class="flash"><%= notice %></div><% end %>
+        <% if alert %><div class="flash form-error"><%= alert %></div><% end %>
+        <%= yield %>
+      </main>
+    </div>
+  </body>
+</html>

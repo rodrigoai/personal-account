@@ -1,0 +1,55 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Analysis / <%= month_filter_label %></p>
+    <h1>Financial report</h1>
+    <p class="subhead">Category totals for the selected period. Parent totals include their children and any entries assigned directly to the parent.</p>
+  </div>
+</div>
+
+<section class="section-panel mt-10">
+  <div class="section-title">
+    <div>
+      <p class="eyebrow">Category breakdown</p>
+      <h2>Where the money moved</h2>
+      <p class="subhead">Income is positive, outcome is negative. Mixed categories show income minus outcome.</p>
+    </div>
+  </div>
+  <div class="report-table-wrapper">
+    <table class="report-table">
+      <caption class="sr-only">Category totals and financial summary for <%= month_filter_label %></caption>
+      <thead>
+        <tr><th scope="col">Category</th><th scope="col">Entries</th><th scope="col">Total</th></tr>
+      </thead>
+      <tbody>
+        <% @report.each do |row| %>
+          <tr class="report-row" data-category-id="<%= row[:category]&.id %>" data-depth="<%= row[:depth] %>">
+            <th scope="row">
+              <div class="report-category" style="--category-depth: <%= row[:depth] %>">
+                <span class="category-icon" aria-hidden="true" style="background:<%= row[:category]&.color || '#C8C4BC' %>"><%= (row[:category]&.name || 'Uncategorized').first %></span>
+                <% if row[:category] %>
+                  <%= link_to transactions_path(category_ids: [row[:category].id], month: current_month, q: ""), class: "hover:underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4" do %>
+                    <strong><%= row[:category].name %></strong>
+                  <% end %>
+                <% else %>
+                  <strong>Uncategorized</strong>
+                <% end %>
+              </div>
+            </th>
+            <td class="report-count"><%= row[:count] %></td>
+            <td class="report-amount <%= 'positive' if row[:balance].positive? %>"><%= '+' if row[:balance].positive? %><%= number_to_currency(row[:balance], unit: 'R$ ', separator: ',', delimiter: '.') %></td>
+          </tr>
+        <% end %>
+        <% if @report.empty? %>
+          <tr><td colspan="3" class="report-empty">No transactions for this period.</td></tr>
+        <% end %>
+      </tbody>
+      <tfoot>
+        <tr class="report-summary">
+          <td><span>Total income</span><strong class="positive"><%= number_to_currency(@totals[:income], unit: 'R$ ', separator: ',', delimiter: '.') %></strong></td>
+          <td><span>Total outcome</span><strong><%= number_to_currency(@totals[:outcome], unit: 'R$ ', separator: ',', delimiter: '.') %></strong></td>
+          <td class="report-balance"><span>Balance</span><strong class="<%= 'positive' if @totals[:balance].positive? %>"><%= number_to_currency(@totals[:balance], unit: 'R$ ', separator: ',', delimiter: '.') %></strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>

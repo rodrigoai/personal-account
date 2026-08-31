@@ -1,0 +1,16 @@
+/log/*
+/tmp/*
+!/tmp/pids/
+/tmp/pids/*
+!/tmp/pids/.keep
+/storage/*
+!/storage/.keep
+/public/assets
+vendor/bundle/
+.bundle/
+.env
+.env.*
+!.env.example
+.DS_Store
+data/
+*.swp

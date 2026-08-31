@@ -1,0 +1,103 @@
+require "open3"
+require "tmpdir"
+
+module StatementParsers
+  class SantanderCreditCardPdf < Base
+    DATE_PATTERN = /\d{2}\/\d{2}(?!\/)/
+    EXCLUDED_DESCRIPTIONS = /\b(?:Compra|Data|Descrição|Parcela|R\$|US\$|VALOR TOTAL)\b/i
+    PAYMENT_DESCRIPTION = /DEB.*FATURA|PAGAMENTO.*FATURA/i
+
+    def call
+      validate_layout!
+      source_index = 0
+
+      detail_pages.flat_map do |page|
+        page.lines.flat_map do |line|
+          parse_line(line).map do |row|
+            row["source_index"] = source_index
+            source_index += 1
+            row
+          end
+        end
+      end
+    end
+
+    def statement_total
+      @statement_total ||= begin
+        value = pdf_text[/Saldo\s+Desta\s+Fatura\s+(#{MONEY_PATTERN})/i, 1] ||
+          pdf_text[/Total\s+a\s+Pagar\s+R\$\s*(#{MONEY_PATTERN})/i, 1]
+        parse_brazilian_money(value)
+      end
+    end
+
+    private
+
+    def detail_pages
+      @detail_pages ||= pdf_text.split("\f").select { |page| page.match?(/Detalhamento\s+da\s+Fatura/i) }
+    end
+
+    def validate_layout!
+      return if pdf_text.match?(/cartão\s+SANTANDER/i) && detail_pages.any?
+
+      raise StatementParser::ParseError, "The PDF is not a recognized Santander credit-card statement"
+    end
+
+    # Santander PDFs render independent card columns on the same physical line.
+    # Pairing each money token with the first date since the previous token avoids
+    # mistaking an installment such as 03/12 for a second transaction column.
+    def parse_line(line)
+      previous_money_end = 0
+
+      line.to_enum(:scan, MONEY_PATTERN).filter_map do
+        money_match = Regexp.last_match
+        segment = line[previous_money_end...money_match.begin(0)]
+        previous_money_end = money_match.end(0)
+        date_match = segment.match(DATE_PATTERN)
+        next unless date_match
+
+        description = segment[date_match.end(0)..].to_s
+          .sub(/\s+\d{2}\/\d{2}\s*\z/, "")
+          .squish
+        next if description.blank? || description.match?(EXCLUDED_DESCRIPTIONS)
+        next if money_match[0].start_with?("-") && description.match?(PAYMENT_DESCRIPTION)
+
+        amount = parse_brazilian_money(money_match[0])
+        next if amount.nil? || amount.zero?
+
+        {
+          "date" => statement_date(date_match[0]),
+          "description" => description,
+          "amount" => amount.abs,
+          "direction" => money_match[0].start_with?("-") ? "income" : "outcome",
+          "currency" => "BRL"
+        }
+      end
+    end
+
+    def statement_date(date_text)
+      day, month = date_text.split("/").map(&:to_i)
+      reference = statement_import.statement_month.end_of_month
+      [reference.year - 1, reference.year, reference.year + 1]
+        .filter_map { |year| Date.new(year, month, day) rescue nil }
+        .min_by { |date| (date - reference).abs }
+    end
+
+    def pdf_text
+      @pdf_text ||= extract_pdf_text
+    end
+
+    def extract_pdf_text
+      Dir.mktmpdir("ledgerly-santander-card") do |directory|
+        input = File.join(directory, "statement.pdf")
+        File.binwrite(input, statement_import.file.download)
+        executable = ENV.fetch("PDFTOTEXT_BIN", "pdftotext")
+        stdout, stderr, status = capture_command(executable, "-layout", input, "-")
+        raise StatementParser::ParseError, "Santander PDF extraction failed: #{stderr.to_s.strip.presence || status.inspect}" unless status.success?
+
+        stdout
+      end
+    rescue Errno::ENOENT
+      raise StatementParser::ParseError, "Poppler pdftotext is required to read Santander credit-card PDFs"
+    end
+  end
+end

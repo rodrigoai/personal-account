@@ -1,0 +1,14 @@
+<div class="month-filter-bar">
+  <div>
+    <p class="eyebrow">Workspace period</p>
+    <p class="month-filter-summary"><%= month_filter_label %></p>
+    <p class="month-filter-hint">Filters by statement month across pages.</p>
+  </div>
+  <%= form_with url: month_filter_path, method: :get, class: "month-filter-form", aria: { label: "Filter workspace by month" } do |form| %>
+    <%= hidden_field_tag :status, "review" if controller_name == "transactions" && params[:status] == "review" %>
+    <%= form.label :month, "Month", for: "workspace-month", class: "sr-only" %>
+    <%= form.month_field :month, id: "workspace-month", value: (current_month unless current_month == "all"), class: "input", min: "0001-01", max: "9999-12" %>
+    <%= form.submit "Apply", class: "button button-primary" %>
+    <%= link_to "All months", month_filter_path + "?" + { month: "all", status: ("review" if controller_name == "transactions" && params[:status] == "review") }.compact.to_query, class: "quiet-link" %>
+  <% end %>
+</div>

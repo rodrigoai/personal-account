@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+require "bundler/setup"
+require "foreman"
+exec "foreman", "start", "-f", File.expand_path("../Procfile.dev", __dir__)

@@ -1,0 +1,60 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Ledger</p>
+    <h1>Transactions</h1>
+    <p class="subhead">Every normalized movement, with a clear path to categorization.</p>
+  </div>
+</div>
+
+<section class="section-panel mt-10">
+  <%= form_with url: transactions_path, method: :get, class: "transaction-search", role: "search" do |form| %>
+    <%= hidden_field_tag :status, "review" if params[:status] == "review" %>
+    <div class="transaction-search-field">
+      <%= form.label :q, "Search transactions", for: "transaction-search" %>
+      <%= form.search_field :q, id: "transaction-search", value: @query, placeholder: "Description, account, category or notes", maxlength: 200, class: "input" %>
+    </div>
+    <details class="category-filter">
+      <summary>Categories<%= " (#{@selected_category_ids.size})" if @selected_category_ids.any? %></summary>
+      <fieldset class="category-filter-panel" aria-describedby="category-filter-hint">
+        <legend class="sr-only">Filter transactions by category</legend>
+        <p id="category-filter-hint">Select one or more categories. Parents include all subcategories.</p>
+        <%= hidden_field_tag "category_ids[]", "", id: nil %>
+        <div class="category-filter-scroll">
+          <%= render "category_filter_options", categories_by_parent: @filter_categories.group_by(&:parent_id), parent_id: nil %>
+          <% if @filter_categories.empty? %><p>No categories available yet.</p><% end %>
+        </div>
+        <%= form.submit "Apply filters", class: "button button-primary" %>
+      </fieldset>
+    </details>
+    <%= form.submit "Search", class: "button button-primary" %>
+    <% if @query.present? %><%= link_to "Clear search", transactions_path(q: "", status: params[:status].presence), class: "quiet-link" %><% end %>
+  <% end %>
+  <% if @selected_category_ids.any? %>
+    <div class="category-filter-active">
+      <p>Categories: <strong><%= @filter_categories.select { |category| @selected_category_ids.include?(category.id) }.map(&:name).to_sentence %></strong></p>
+      <%= link_to "Clear categories", transactions_path(category_ids: [""], status: params[:status].presence), class: "quiet-link" %>
+    </div>
+  <% end %>
+  <div class="filter-row">
+    <%= link_to "All entries", transactions_path, class: (params[:status].blank? ? "filter active" : "filter") %>
+    <%= link_to "Needs review", transactions_path(status: :review), class: (params[:status] == "review" ? "filter active" : "filter") %>
+  </div>
+  <div class="transaction-list">
+    <% if @transactions.empty? %>
+      <div class="empty-state"><span class="empty-icon">↗</span><div><strong>No matching transactions.</strong><p>Try another month, change your search or categories, or select All entries.</p></div></div>
+    <% end %>
+    <% @transactions.each do |transaction| %>
+      <div class="transaction-row <%= 'needs-review' if transaction.categorization_pending? %>">
+        <span class="transaction-date"><%= transaction.date.strftime("%d %b %Y") %></span>
+        <span class="transaction-description"><strong><%= transaction.description %></strong><small><%= transaction.account&.name || transaction.currency %></small></span>
+        <span class="tag"><%= transaction.direction %></span>
+        <strong class="amount"><%= transaction.outcome? ? "-" : "+" %><%= number_to_currency(transaction.amount, unit: "R$ ", separator: ",", delimiter: ".") %></strong>
+        <%= link_to edit_transaction_path(transaction), class: "category-button", aria: { label: "Change category for #{transaction.description}" } do %>
+          <span class="category-button-dot" style="background:<%= transaction.category&.color || '#D8D6CF' %>"></span>
+          <span><%= transaction.category&.name || "Choose category" %></span>
+          <small>Change</small>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</section>
