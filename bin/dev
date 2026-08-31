@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 require "bundler/setup"
 require "foreman"
-exec "foreman", "start", "-f", File.expand_path("../Procfile.dev", __dir__)
+exec "foreman", "start", "-f", File.expand_path("../Procfile.dev", __dir__), "-p", ENV.fetch("PORT", "3000")
