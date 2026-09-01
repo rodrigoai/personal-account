@@ -4,7 +4,12 @@
     <h1><%= @import.account_name.presence || @import.kind.humanize %></h1>
     <p class="subhead"><%= @import.statement_month.strftime("%B %Y") %> · <%= @import.file.filename %></p>
   </div>
-  <div><span class="status status-<%= @import.status %>"><%= @import.status.humanize %></span></div>
+  <div class="flex items-center gap-3">
+    <% if @import.pending? || @import.failed? %>
+      <%= link_to "Edit month", edit_import_path(@import), class: "button button-primary" %>
+    <% end %>
+    <span class="status status-<%= @import.status %>"><%= @import.status.humanize %></span>
+  </div>
 </div>
 
 <section class="section-panel mt-10">
@@ -37,6 +42,42 @@
     <% end %>
   </div>
 </section>
+
+<% if @import.credit_card? && @import.statement_total.present? && (@import.needs_review? || @import.completed?) %>
+  <section class="section-panel mt-8" aria-labelledby="card-payment-title">
+    <div class="section-title">
+      <div>
+        <p class="eyebrow">Reconciliation</p>
+        <h2 id="card-payment-title">Credit-card payment</h2>
+        <p class="subhead">Link the matching current-account expense so the payment is not counted again in reports and dashboards.</p>
+      </div>
+      <% if @import.bank_payment_transaction %><span class="status status-completed">Linked</span><% else %><span class="status status-needs_review">Needs link</span><% end %>
+    </div>
+
+    <% if @import.bank_payment_transaction %>
+      <div class="transaction-list">
+        <div class="transaction-row">
+          <span class="transaction-date"><%= @import.bank_payment_transaction.date.strftime("%d %b %Y") %></span>
+          <span class="transaction-description"><strong><%= @import.bank_payment_transaction.description %></strong><small><%= @import.bank_payment_transaction.account&.name || "Bank transaction" %> · excluded from reporting</small></span>
+          <strong class="amount">-<%= number_to_currency(@import.bank_payment_transaction.amount, unit: "R$ ", separator: ",", delimiter: ".") %></strong>
+          <%= button_to "Remove link", payment_import_path(@import), method: :patch, params: { bank_payment_transaction_id: "" }, class: "button button-danger-outline" %>
+        </div>
+      </div>
+    <% elsif @payment_candidates.any? %>
+      <%= form_with url: payment_import_path(@import), method: :patch, class: "form-stack mt-6" do |form| %>
+        <div>
+          <%= form.label :bank_payment_transaction_id, "Matching bank payment" %>
+          <%= form.select :bank_payment_transaction_id,
+            @payment_candidates.map { |transaction| ["#{transaction.date.strftime('%d %b')} · #{transaction.description} · #{number_to_currency(transaction.amount, unit: 'R$ ', separator: ',', delimiter: '.')} (#{transaction.account&.name || 'Bank'})", transaction.id] },
+            { include_blank: "Choose a payment" }, class: "input" %>
+        </div>
+        <%= form.submit "Link payment", class: "button button-primary" %>
+      <% end %>
+    <% else %>
+      <div class="empty-state mt-6"><span class="empty-icon">◇</span><div><strong>No exact bank payment found.</strong><p>Import the current-account statement for <%= @import.statement_month.strftime("%B %Y") %>. A bank expense of <%= number_to_currency(@import.statement_total, unit: "R$ ", separator: ",", delimiter: ".") %> will be linked automatically when it is the only match.</p></div></div>
+    <% end %>
+  </section>
+<% end %>
 
 <section class="danger-zone mt-8" aria-labelledby="import-controls-title">
   <header class="danger-header">

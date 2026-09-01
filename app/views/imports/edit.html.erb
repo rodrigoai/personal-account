@@ -1,0 +1,26 @@
+<div class="page-head">
+  <div>
+    <p class="eyebrow">Data room / Import</p>
+    <h1>Edit statement month</h1>
+    <p class="subhead"><%= @import.account_name.presence || @import.kind.humanize %> · <%= @import.file.filename %></p>
+  </div>
+</div>
+
+<section class="form-panel narrow mt-10" aria-labelledby="import-month-title">
+  <p class="eyebrow">Import settings</p>
+  <h2 id="import-month-title">Statement month</h2>
+  <p class="subhead">Correct the month before processing this file. Failed imports will be returned to pending so you can try again.</p>
+  <%= form_with model: @import, url: import_path(@import), method: :patch, class: "form-stack mt-6" do |form| %>
+    <% if @import.errors.any? %>
+      <div class="form-error"><%= @import.errors.full_messages.to_sentence %></div>
+    <% end %>
+    <div>
+      <%= form.label :statement_month, "Statement month" %>
+      <%= form.month_field :statement_month, value: @import.statement_month&.strftime("%Y-%m"), class: "input", required: true %>
+    </div>
+    <div class="form-actions">
+      <%= link_to "Cancel", import_path(@import), class: "quiet-link" %>
+      <%= form.submit "Update month", class: "button button-primary" %>
+    </div>
+  <% end %>
+</section>

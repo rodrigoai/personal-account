@@ -2,8 +2,14 @@ class Transaction < ApplicationRecord
   belongs_to :account, optional: true
   belongs_to :statement_import, optional: true
   belongs_to :category, optional: true
+  has_one :paid_credit_card_statement,
+    class_name: "StatementImport",
+    foreign_key: :bank_payment_transaction_id,
+    inverse_of: :bank_payment_transaction,
+    dependent: :nullify
 
   enum :direction, { income: "income", outcome: "outcome" }, scopes: false
+  enum :transaction_kind, { bank: "bank", credit_card: "credit_card" }, prefix: true
   enum :categorization_status, { pending: "pending", categorized: "categorized" }, prefix: :categorization
 
   before_validation :assign_merchant_key
@@ -14,6 +20,9 @@ class Transaction < ApplicationRecord
   scope :uncategorized, -> { where(category_id: nil) }
   scope :pending_categorization, -> { where(categorization_status: "pending") }
   scope :categorized, -> { where(categorization_status: "categorized") }
+  scope :reportable, -> {
+    where.not(id: StatementImport.where.not(bank_payment_transaction_id: nil).select(:bank_payment_transaction_id))
+  }
 
   def self.in_categories(category_ids)
     return all if category_ids.blank?
@@ -22,9 +31,10 @@ class Transaction < ApplicationRecord
     where(category_id: matching_ids.uniq)
   end
 
-  validates :description, :date, :statement_month, :amount, :direction, :categorization_status, presence: true
+  validates :description, :date, :statement_month, :amount, :direction, :transaction_kind, :categorization_status, presence: true
   validates :amount, numericality: { greater_than: 0 }
   validates :category_confidence, numericality: { in: 0..1 }, allow_nil: true
+  validates :installment, format: { with: /\A\d{2}\/\d{2}\z/ }, allow_nil: true
   validates :category, presence: true, if: :categorization_categorized?
   validate :category_kind_matches_direction
 
@@ -33,7 +43,7 @@ class Transaction < ApplicationRecord
 
     pattern = "%#{sanitize_sql_like(query.downcase)}%"
     left_joins(:account, :category).where(
-      "LOWER(transactions.description) LIKE :query OR LOWER(transactions.notes) LIKE :query OR LOWER(accounts.name) LIKE :query OR LOWER(categories.name) LIKE :query",
+      "LOWER(transactions.description) LIKE :query OR LOWER(transactions.notes) LIKE :query OR LOWER(transactions.installment) LIKE :query OR LOWER(accounts.name) LIKE :query OR LOWER(categories.name) LIKE :query",
       query: pattern
     )
   end

@@ -95,6 +95,27 @@ class ReportsControllerTest < ActionDispatch::IntegrationTest
     assert_select ".transaction-row .amount", text: "-R$ 500,00"
   end
 
+  test "includes card detail but excludes its linked bank payment" do
+    card_category = Category.create!(name: "Report card dining", kind: :outcome)
+    payment = create_transaction(card_category, 90, :outcome)
+    card_purchase = Transaction.create!(description: "Card dinner", date: @month, statement_month: @month,
+      transaction_kind: :credit_card, category: card_category, amount: 90, direction: :outcome)
+    statement = StatementImport.new(kind: :credit_card, statement_month: @month, account_name: "Report card",
+      statement_total: 90, status: :completed, bank_payment_transaction: payment)
+    statement.file.attach(fixture_file_upload("santander_bank.csv", "text/csv"))
+    statement.save!
+
+    get reports_path, params: { month: "2026-08" }
+
+    assert_response :success
+    assert_select ".report-row[data-category-id='#{card_category.id}']" do
+      assert_select ".report-count", text: "1"
+      assert_select ".report-amount", text: "-R$ 90,00"
+    end
+    assert_includes Transaction.reportable, card_purchase
+    assert_not_includes Transaction.reportable, payment
+  end
+
   private
 
   def report_category_link(category, month)

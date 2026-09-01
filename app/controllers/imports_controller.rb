@@ -18,7 +18,57 @@ class ImportsController < ApplicationController
 
   def show
     @import = StatementImport.find(params[:id])
-    @transactions = @import.transactions.includes(:category).order(date: :asc)
+    load_import_review
+  end
+
+  def edit
+    @import = StatementImport.find(params[:id])
+    unless @import.pending? || @import.failed?
+      redirect_to import_path(@import), alert: "The statement month can only be changed before the import is processed."
+    end
+  end
+
+  def update
+    @import = StatementImport.find(params[:id])
+    result = @import.with_lock do
+      next :not_editable unless @import.pending? || @import.failed?
+
+      @import.assign_attributes(import_month_params)
+      if @import.save
+        @import.update!(status: :pending, error_message: nil)
+        :updated
+      else
+        :invalid
+      end
+    end
+
+    if result == :not_editable
+      return redirect_to import_path(@import), alert: "The statement month can only be changed before the import is processed."
+    end
+
+    if result == :updated
+      redirect_to import_path(@import), notice: "Statement month updated. You can process the import again."
+    else
+      @import.statement_month = @import.statement_month_was unless @import.statement_month
+      render :edit, status: :unprocessable_entity
+    end
+  end
+
+  def update_payment
+    @import = StatementImport.credit_card.find(params[:id])
+    payment_id = params[:bank_payment_transaction_id].presence
+    payment = @import.payment_candidates.find(payment_id) if payment_id
+
+    if @import.update(bank_payment_transaction: payment)
+      message = payment_id ? "Credit-card payment linked. It is now excluded from reports." : "Credit-card payment link removed."
+      redirect_to import_path(@import), notice: message
+    else
+      @transactions = @import.transactions.includes(:category).order(date: :asc)
+      @payment_candidates = @import.payment_candidates.includes(:account)
+      render :show, status: :unprocessable_entity
+    end
+  rescue ActiveRecord::RecordNotFound
+    redirect_to import_path(@import), alert: "Choose an eligible bank payment with the same month and amount."
   end
 
   def process_file
@@ -70,12 +120,26 @@ class ImportsController < ApplicationController
 
   private
 
+  def load_import_review
+    @transactions = @import.transactions.includes(:category).order(date: :asc)
+    @payment_candidates = @import.payment_candidates.includes(:account) if @import.credit_card?
+  end
+
   def parsed_statement_month
     Date.strptime(params.require(:month), "%Y-%m").beginning_of_month
   end
 
   def import_params
     attributes = params.require(:statement_import).permit(:file, :kind, :account_name, :statement_month)
+    parse_statement_month(attributes)
+  end
+
+  def import_month_params
+    attributes = params.require(:statement_import).permit(:statement_month)
+    parse_statement_month(attributes)
+  end
+
+  def parse_statement_month(attributes)
     if attributes[:statement_month].present? && attributes[:statement_month].match?(/\A\d{4}-\d{2}\z/)
       attributes[:statement_month] = Date.strptime(attributes[:statement_month], "%Y-%m")
     end

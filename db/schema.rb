@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.2].define(version: 2026_08_30_000004) do
+ActiveRecord::Schema[7.2].define(version: 2026_08_31_000001) do
   create_schema "auth"
   create_schema "extensions"
   create_schema "graphql"
@@ -241,7 +241,9 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_000004) do
     t.string "reconciliation_status"
     t.string "source_digest"
     t.text "error_message"
+    t.bigint "bank_payment_transaction_id"
     t.index ["account_id"], name: "index_statement_imports_on_account_id"
+    t.index ["bank_payment_transaction_id"], name: "index_statement_imports_on_bank_payment_transaction_id", unique: true
     t.index ["source_digest", "kind", "statement_month"], name: "index_statement_imports_on_unique_source", unique: true, where: "(source_digest IS NOT NULL)"
     t.check_constraint "kind::text = ANY (ARRAY['bank'::character varying::text, 'credit_card'::character varying::text])", name: "statement_imports_kind_check"
     t.check_constraint "reconciliation_status IS NULL OR (reconciliation_status::text = ANY (ARRAY['not_available'::character varying::text, 'matched'::character varying::text, 'mismatched'::character varying::text]))", name: "statement_imports_reconciliation_status_check"
@@ -265,6 +267,8 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_000004) do
     t.string "categorization_status", default: "pending", null: false
     t.string "merchant_key"
     t.string "source_key", null: false
+    t.string "transaction_kind", default: "bank", null: false
+    t.string "installment"
     t.index ["account_id", "direction", "merchant_key"], name: "index_transactions_for_category_matching"
     t.index ["account_id"], name: "index_transactions_on_account_id"
     t.index ["categorization_status"], name: "index_transactions_on_categorization_status"
@@ -273,10 +277,12 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_000004) do
     t.index ["statement_import_id"], name: "index_transactions_on_statement_import_id"
     t.index ["statement_month", "direction"], name: "index_transactions_on_statement_month_and_direction"
     t.index ["statement_month"], name: "index_transactions_on_statement_month"
+    t.index ["transaction_kind", "statement_month"], name: "index_transactions_on_kind_and_statement_month"
     t.check_constraint "amount > 0::numeric", name: "transactions_positive_amount_check"
     t.check_constraint "categorization_status::text = ANY (ARRAY['pending'::character varying::text, 'categorized'::character varying::text])", name: "transactions_categorization_status_check"
     t.check_constraint "category_confidence IS NULL OR category_confidence >= 0::numeric AND category_confidence <= 1::numeric", name: "transactions_category_confidence_check"
     t.check_constraint "direction::text = ANY (ARRAY['income'::character varying::text, 'outcome'::character varying::text])", name: "transactions_direction_check"
+    t.check_constraint "transaction_kind::text = ANY (ARRAY['bank'::character varying, 'credit_card'::character varying]::text[])", name: "transactions_kind_check"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
@@ -291,6 +297,7 @@ ActiveRecord::Schema[7.2].define(version: 2026_08_30_000004) do
   add_foreign_key "solid_queue_recurring_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_scheduled_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "statement_imports", "accounts"
+  add_foreign_key "statement_imports", "transactions", column: "bank_payment_transaction_id", on_delete: :nullify
   add_foreign_key "transactions", "accounts"
   add_foreign_key "transactions", "categories"
   add_foreign_key "transactions", "statement_imports", on_delete: :cascade

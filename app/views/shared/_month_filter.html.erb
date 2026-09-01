@@ -5,10 +5,19 @@
     <p class="month-filter-hint">Filters by statement month across pages.</p>
   </div>
   <%= form_with url: month_filter_path, method: :get, class: "month-filter-form", aria: { label: "Filter workspace by month" } do |form| %>
-    <%= hidden_field_tag :status, "review" if controller_name == "transactions" && params[:status] == "review" %>
+    <%= hidden_field_tag :status, "review" if controller_name.in?(%w[transactions credit_card_transactions]) && params[:status] == "review" %>
+    <% if controller_name.in?(%w[transactions credit_card_transactions]) %>
+      <%= hidden_field_tag :sort, @sort %>
+      <%= hidden_field_tag :direction, @direction %>
+    <% end %>
     <%= form.label :month, "Month", for: "workspace-month", class: "sr-only" %>
     <%= form.month_field :month, id: "workspace-month", value: (current_month unless current_month == "all"), class: "input", min: "0001-01", max: "9999-12" %>
     <%= form.submit "Apply", class: "button button-primary" %>
-    <%= link_to "All months", month_filter_path + "?" + { month: "all", status: ("review" if controller_name == "transactions" && params[:status] == "review") }.compact.to_query, class: "quiet-link" %>
+    <%= link_to "All months", month_filter_path + "?" + {
+      month: "all",
+      status: ("review" if controller_name.in?(%w[transactions credit_card_transactions]) && params[:status] == "review"),
+      sort: (@sort if controller_name.in?(%w[transactions credit_card_transactions])),
+      direction: (@direction if controller_name.in?(%w[transactions credit_card_transactions]))
+    }.compact.to_query, class: "quiet-link" %>
   <% end %>
 </div>

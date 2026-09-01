@@ -12,6 +12,7 @@ gem "tailwindcss-rails", "~> 3.3.1"
 gem "sprockets-rails"
 gem "bootsnap", require: false
 gem "csv", "~> 3.3"
+gem "pdf-reader", "~> 2.15"
 gem "aws-sdk-s3", require: false
 gem "solid_queue", "~> 1.0"
 gem "foreman", require: false

@@ -1,7 +1,7 @@
 class DashboardController < ApplicationController
   def show
     @month = parsed_current_month
-    @transactions = filter_by_month(Transaction.all)
+    @transactions = filter_by_month(Transaction.reportable)
     @income = @transactions.income.sum(:amount)
     @outcome = @transactions.outcome.sum(:amount)
     @pending = @transactions.pending_categorization.includes(:account).order(date: :desc)
@@ -9,7 +9,7 @@ class DashboardController < ApplicationController
 
     chart_month = @month || Date.current.beginning_of_month
     first_month = chart_month - 11.months
-    totals = Transaction.where(statement_month: first_month..chart_month.end_of_month)
+    totals = Transaction.reportable.where(statement_month: first_month..chart_month.end_of_month)
       .group(:statement_month, :direction)
       .sum(:amount)
     @monthly_totals = 11.downto(0).map do |offset|

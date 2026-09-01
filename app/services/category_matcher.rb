@@ -1,5 +1,5 @@
 class CategoryMatcher
-  Match = Data.define(:category, :confidence)
+  Match = Data.define(:category, :confidence, :notes)
 
   def self.merchant_key(description)
     I18n.transliterate(description.to_s)
@@ -16,14 +16,17 @@ class CategoryMatcher
   end
 
   def call
-    return Match.new(category: nil, confidence: nil) if @merchant_key.blank?
+    return Match.new(category: nil, confidence: nil, notes: nil) if @merchant_key.blank?
 
-    previous = Transaction.categorized
+    matches = Transaction.categorized
       .where(merchant_key: @merchant_key, direction: @direction, account: @account)
-      .where.not(category_id: nil)
-      .order(updated_at: :desc)
-      .first
+    previous = matches.where.not(category_id: nil).order(updated_at: :desc).first
+    previous_notes = matches.where.not(notes: [nil, ""]).order(updated_at: :desc).pick(:notes)
 
-    Match.new(category: previous&.category, confidence: previous ? BigDecimal("1.0") : nil)
+    Match.new(
+      category: previous&.category,
+      confidence: previous ? BigDecimal("1.0") : nil,
+      notes: previous_notes
+    )
   end
 end

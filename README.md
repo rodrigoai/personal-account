@@ -9,7 +9,7 @@ Ledgerly is a local-first Rails and Hotwire workspace for importing Santander st
 
 The parsers validate the Santander layout before importing. Credit-card PDFs retain their detailed rows even when reconciliation fails; a mismatch is shown for review instead of being replaced by a synthetic total.
 
-LibreOffice (`soffice`) converts XLS/XLSX files and Poppler (`pdftotext`) preserves the multi-column PDF layout. Set `LIBREOFFICE_BIN` and `PDFTOTEXT_BIN` when those executables are not on `PATH`.
+LibreOffice (`soffice`) converts XLS/XLSX files. Poppler (`pdftotext`) is preferred for preserving the credit-card PDF's multi-column spacing, but the bundled `pdf-reader` gem is used automatically when Poppler is unavailable. `PDFTOTEXT_BIN` is optional and can point to a specific Poppler executable.
 
 ## Architecture
 
@@ -22,6 +22,8 @@ LibreOffice (`soffice`) converts XLS/XLSX files and Poppler (`pdftotext`) preser
 Ingestion is locked, transactional, retryable, and idempotent per import. Exact descriptions reuse the latest manual category locally; remaining rows are classified in one structured OpenAI Responses API call. Rows the model cannot classify reliably are assigned to the reserved **Not identified** category and remain in the review queue.
 
 The shared workspace period filters the overview, transactions, reports, and import history by **statement month**. It defaults to the current month; select **All months** to remove the restriction. The chosen period persists across pages in the browser session. The overview chart shows the 12 months ending in the selected month (or the current month when showing all data). Categories and individual statement details remain available regardless of the period.
+
+Current-account and credit-card entries have separate ledger pages. After a credit-card statement is processed, Ledgerly links it to the bank expense with the same statement month and exact total when there is only one match. Ambiguous matches can be selected on the credit-card import page. The linked bank payment remains visible in Transactions but is excluded from reports and overview totals; the categorized card detail is counted instead. Removing the link makes the bank payment reportable again.
 
 Transaction search matches descriptions, account names, category names, and notes, ignoring case. Search text persists when navigating away and back, combines with the month and review filters, and can be reset with **Clear search**.
 

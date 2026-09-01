@@ -47,4 +47,11 @@ class TransactionTest < ActiveSupport::TestCase
     assert_equal "PIX TEST STORE", transaction.merchant_key
     assert_predicate transaction.source_key, :present?
   end
+
+  test "defaults legacy entries to the bank transaction kind" do
+    transaction = Transaction.create!(date: Date.current, statement_month: Date.current.beginning_of_month,
+      description: "Legacy bank entry", amount: 10, direction: :outcome)
+
+    assert_predicate transaction, :transaction_kind_bank?
+  end
 end

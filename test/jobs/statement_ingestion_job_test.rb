@@ -26,7 +26,7 @@ class StatementIngestionJobTest < ActiveJob::TestCase
   test "reuses a manually categorized Santander description" do
     account = Account.create!(name: "Santander checking", kind: :bank)
     food = Category.create!(name: "Job food", kind: :outcome)
-    Transaction.create!(account: account, category: food, categorization_status: :categorized, date: Date.new(2026, 7, 1), statement_month: Date.new(2026, 7, 1), description: "COMPRA TEST MARKET", amount: 20, direction: :outcome)
+    Transaction.create!(account: account, category: food, categorization_status: :categorized, date: Date.new(2026, 7, 1), statement_month: Date.new(2026, 7, 1), description: "COMPRA TEST MARKET", notes: "Weekly groceries", amount: 20, direction: :outcome)
     statement_import = build_import(account_name: account.name)
 
     without_model_matches { StatementIngestionJob.perform_now(statement_import.id) }
@@ -35,6 +35,7 @@ class StatementIngestionJobTest < ActiveJob::TestCase
     assert_equal 2, matched.count
     assert matched.all?(&:categorization_categorized?)
     assert matched.all? { |transaction| transaction.category == food }
+    assert matched.all? { |transaction| transaction.notes == "Weekly groceries" }
   end
 
   test "uses one model classification batch for descriptions without a saved pattern" do
@@ -59,6 +60,34 @@ class StatementIngestionJobTest < ActiveJob::TestCase
     unrecognized = statement_import.transactions.find_by!(description: "PIX RECEBIDO TEST CUSTOMER")
     assert_predicate unrecognized, :categorization_pending?
     assert_equal Category.not_identified!, unrecognized.category
+  end
+
+  test "marks imported rows with their statement transaction kind" do
+    statement_import = build_import
+
+    without_model_matches { StatementIngestionJob.perform_now(statement_import.id) }
+
+    assert statement_import.transactions.reload.all?(&:transaction_kind_bank?)
+  end
+
+  test "imports credit-card details as credit-card transactions" do
+    statement_import = StatementImport.new(kind: :credit_card, statement_month: Date.new(2026, 8, 1), account_name: "Test card")
+    statement_import.file.attach(fixture_file_upload("santander_bank.csv", "text/csv"))
+    statement_import.save!
+    parser = Object.new
+    parser.define_singleton_method(:call) do
+      [{ "date" => Date.new(2026, 7, 20), "description" => "CARD MARKET", "amount" => BigDecimal("45.50"), "direction" => "outcome", "currency" => "BRL", "installment" => "01/12" }]
+    end
+    parser.define_singleton_method(:statement_total) { BigDecimal("45.50") }
+
+    StatementParser.stub(:new, ->(*) { parser }) do
+      without_model_matches { StatementIngestionJob.perform_now(statement_import.id) }
+    end
+
+    transaction = statement_import.transactions.reload.sole
+    assert_predicate transaction, :transaction_kind_credit_card?
+    assert_predicate transaction.account, :credit_card?
+    assert_equal "01/12", transaction.installment
   end
 
   private

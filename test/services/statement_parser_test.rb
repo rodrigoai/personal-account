@@ -45,8 +45,36 @@ class StatementParserTest < ActiveSupport::TestCase
       assert_equal 2, rows.size
       assert_equal ["TEST MARKET", "TEST PHARMACY"], rows.map { |row| row["description"] }
       assert_equal [BigDecimal("99.99"), BigDecimal("100.00")], rows.map { |row| row["amount"] }
+      assert_equal ["02/03", nil], rows.map { |row| row["installment"] }
       assert_equal BigDecimal("199.99"), adapter.statement_total
     end
+  end
+
+  test "uses the Ruby PDF fallback when pdftotext is unavailable" do
+    text = <<~TEXT
+      Olá! Esta é a fatura do seu cartãoSANTANDER
+      TotalaPagar R$ 10,00
+      DetalhamentodaFatura
+      Despesas
+      01/07 TEST MARKET 10,00
+      SaldoDestaFatura 10,00
+    TEXT
+    import = FakeImport.new("credit_card", FakeFile.new("fake pdf bytes", "pdf"), Date.new(2026, 7, 1))
+    adapter = StatementParsers::SantanderCreditCardPdf.new(import)
+    page = Struct.new(:text).new(text)
+    reader = Struct.new(:pages).new([page])
+    previous_executable = ENV["PDFTOTEXT_BIN"]
+    ENV["PDFTOTEXT_BIN"] = "/definitely/missing/pdftotext"
+
+    PDF::Reader.stub(:new, ->(*) { reader }) do
+      rows = adapter.call
+
+      assert_equal 1, rows.size
+      assert_equal "TEST MARKET", rows.first["description"]
+      assert_equal BigDecimal("10.00"), adapter.statement_total
+    end
+  ensure
+    ENV["PDFTOTEXT_BIN"] = previous_executable
   end
 
   test "rejects a bank PDF instead of guessing a parser" do

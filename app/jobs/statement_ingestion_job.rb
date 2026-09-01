@@ -42,6 +42,7 @@ class StatementIngestionJob < ApplicationJob
         status: import.transactions.pending_categorization.exists? || reconciliation == "mismatched" ? :needs_review : :completed
       )
     end
+    CreditCardPaymentMatcher.call(import)
   rescue StandardError => e
     import&.update(status: :failed, error_message: e.message.to_s.truncate(1_000))
     Rails.logger.error(e.full_message)
@@ -73,7 +74,11 @@ class StatementIngestionJob < ApplicationJob
     prepared_rows.each do |prepared|
       transaction = existing[prepared.fetch(:source_key)]
       if transaction&.categorization_categorized?
-        matches[prepared.fetch(:source_key)] = CategoryMatcher::Match.new(category: transaction.category, confidence: transaction.category_confidence)
+        matches[prepared.fetch(:source_key)] = CategoryMatcher::Match.new(
+          category: transaction.category,
+          confidence: transaction.category_confidence,
+          notes: transaction.notes
+        )
         next
       end
 
@@ -111,6 +116,7 @@ class StatementIngestionJob < ApplicationJob
 
   def persist_transaction(import, row, source_key, match)
     transaction = import.transactions.find_or_initialize_by(source_key: source_key)
+    propagated_notes = match.notes if match.respond_to?(:notes)
 
     transaction.assign_attributes(
       account: import.account,
@@ -119,8 +125,11 @@ class StatementIngestionJob < ApplicationJob
       description: row["description"],
       amount: row["amount"],
       direction: row["direction"],
-      currency: row["currency"].presence || "BRL"
+      currency: row["currency"].presence || "BRL",
+      installment: row["installment"].presence,
+      transaction_kind: import.kind
     )
+    transaction.notes = propagated_notes if transaction.new_record? && propagated_notes.present?
     unless transaction.categorization_categorized?
       transaction.assign_attributes(
         category: match.category,

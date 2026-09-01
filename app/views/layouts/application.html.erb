@@ -6,10 +6,17 @@
     <meta name="turbo-cache-control" content="no-cache">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    <script>
+      (() => {
+        const savedTheme = localStorage.getItem("ledgerly-theme")
+        const theme = savedTheme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        document.documentElement.dataset.theme = theme
+      })()
+    </script>
     <%= stylesheet_link_tag "tailwind", "data-turbo-track": "reload" %>
     <%= javascript_importmap_tags %>
   </head>
-  <body class="bg-ink text-paper antialiased">
+  <body class="bg-ink text-paper antialiased" data-controller="theme">
     <div class="min-h-screen lg:flex">
       <aside class="sidebar">
         <%= link_to dashboard_path, class: "brand" do %><span class="brand-mark">L</span><span>ledgerly</span><% end %>
@@ -17,12 +24,20 @@
         <nav class="mt-4 space-y-1">
           <%= link_to dashboard_path, class: "nav-link #{controller_name == 'dashboard' ? 'active' : ''}" do %><span>◌</span> Overview<% end %>
           <%= link_to transactions_path, class: "nav-link #{controller_name == 'transactions' ? 'active' : ''}" do %><span>↗</span> Transactions<% end %>
+          <%= link_to credit_card_transactions_path, class: "nav-link #{controller_name == 'credit_card_transactions' ? 'active' : ''}" do %><span>◇</span> Credit cards<% end %>
           <%= link_to imports_path, class: "nav-link #{controller_name == 'imports' ? 'active' : ''}" do %><span>↑</span> Imports<% end %>
           <%= link_to reports_path, class: "nav-link #{controller_name == 'reports' ? 'active' : ''}" do %><span>▤</span> Reports<% end %>
         </nav>
         <div class="sidebar-footer">
           <p class="eyebrow">Your system</p>
           <%= link_to categories_path, class: "nav-link mt-3 #{controller_name == 'categories' ? 'active' : ''}" do %><span>⌘</span> Categories<% end %>
+          <button type="button" class="theme-toggle" data-theme-target="button" data-action="theme#toggle" aria-label="Switch to dark theme" aria-pressed="false">
+            <span class="theme-toggle-icon" aria-hidden="true">
+              <svg class="theme-icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"/></svg>
+              <svg class="theme-icon-moon" viewBox="0 0 24 24"><path d="M20.3 15.1A8.5 8.5 0 0 1 8.9 3.7 8.5 8.5 0 1 0 20.3 15.1Z"/></svg>
+            </span>
+            <span data-theme-target="label">Dark theme</span>
+          </button>
           <div class="profile"><span class="avatar">R</span><span><strong>Personal account</strong><small>Local workspace</small></span></div>
         </div>
       </aside>
