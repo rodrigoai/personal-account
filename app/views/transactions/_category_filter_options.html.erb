@@ -1,12 +1,12 @@
 <ul class="category-filter-options">
   <% categories_by_parent.fetch(parent_id, []).each do |category| %>
     <li>
-      <label class="category-filter-option" for="filter-category-<%= category.id %>">
-        <%= check_box_tag "category_ids[]", category.id, @selected_category_ids.include?(category.id), id: "filter-category-#{category.id}" %>
+      <label class="category-filter-option" for="<%= id_prefix %>-<%= category.id %>">
+        <%= check_box_tag field_name, category.id, selected_category_ids.include?(category.id), id: "#{id_prefix}-#{category.id}" %>
         <span><%= category.name %><% if categories_by_parent.key?(category.id) %><small>Includes subcategories</small><% end %></span>
       </label>
       <% if categories_by_parent.key?(category.id) %>
-        <%= render "category_filter_options", categories_by_parent: categories_by_parent, parent_id: category.id %>
+        <%= render "transactions/category_filter_options", categories_by_parent: categories_by_parent, parent_id: category.id, selected_category_ids: selected_category_ids, field_name: field_name, id_prefix: id_prefix %>
       <% end %>
     </li>
   <% end %>

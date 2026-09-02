@@ -13,6 +13,7 @@ export default class extends Controller {
     root.dataset.theme = theme
     localStorage.setItem("ledgerly-theme", theme)
     this.syncControl()
+    window.dispatchEvent(new CustomEvent("ledgerly:theme-change", { detail: { theme } }))
   }
 
   syncControl() {

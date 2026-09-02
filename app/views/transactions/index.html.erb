@@ -28,7 +28,7 @@
         <p id="category-filter-hint">Select one or more categories. Parents include all subcategories.</p>
         <%= hidden_field_tag "category_ids[]", "", id: nil %>
         <div class="category-filter-scroll">
-          <%= render "category_filter_options", categories_by_parent: @filter_categories.group_by(&:parent_id), parent_id: nil %>
+          <%= render "category_filter_options", categories_by_parent: @filter_categories.group_by(&:parent_id), parent_id: nil, selected_category_ids: @selected_category_ids, field_name: "category_ids[]", id_prefix: "filter-category" %>
           <% if @filter_categories.empty? %><p>No categories available yet.</p><% end %>
         </div>
         <%= form.submit "Apply filters", class: "button button-primary" %>
